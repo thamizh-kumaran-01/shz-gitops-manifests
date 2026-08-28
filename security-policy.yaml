@@ -1,0 +1,19 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: require-owner-label
+spec:
+  validationFailureAction: Enforce
+  rules:
+    - name: check-owner-label
+      match:
+        any:
+        - resources:
+            kinds:
+              - Deployment
+      validate:
+        message: "Zero-Trust Violation: Every deployment must include an 'owner' label!"
+        pattern:
+          metadata:
+            labels:
+              owner: "?*"
