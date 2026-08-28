@@ -1,21 +1,22 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: dummy-app
+  name: shz-deployment
+  namespace: default
   labels:
-    app: my-zero-trust-app
+    app: shz-v1
 spec:
   replicas: 2
   selector:
     matchLabels:
-      app: my-zero-trust-app
+      app: shz-v1
   template:
     metadata:
       labels:
-        app: my-zero-trust-app
+        app: shz-v1
     spec:
       containers:
-      - name: dummy-container
-        image: nginx:latest
+      - name: web-app
+        image: ghcr.io/thamizh-kumaran-01/shz-app:sha256:8dd818e9148e3127189aa5cb652f8af0dfb0e466ad4d6363f2fb477c98bc06fb
         ports:
         - containerPort: 80
