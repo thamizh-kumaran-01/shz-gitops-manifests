@@ -1,54 +1,68 @@
-name: SHZ CI Pipeline
+name: CI - SHZ Platform (GHCR)
 
 on:
   push:
     branches: [ "main" ]
 
 env:
-  IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/shz-app
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository_owner }}/shz-app
 
 jobs:
-  build-and-secure:
+  build-scan-sign-push:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      packages: write
-      id-token: write
+      packages: write # Mandatory for pushing to GHCR
+      id-token: write # Mandatory for Cosign keyless signing
 
     steps:
-    - name: Checkout Code
-      uses: actions/checkout@v4
+      # Step 2: Checks start
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-    - name: Install Cosign
-      uses: sigstore/cosign-installer@v3.5.0
+      # Convert Image Name to lowercase (Docker strictly requires lowercase image names)
+      - name: Lowercase image name
+        run: |
+          echo "IMAGE_LC=${IMAGE_NAME,,}" >> ${GITHUB_ENV}
 
-    - name: Log into GitHub Registry
-      uses: docker/login-action@v3
-      with:
-        registry: ghcr.io
-        username: ${{ github.actor }}
-        password: ${{ secrets.GITHUB_TOKEN }}
+      # Build the image locally first so Trivy and SBOM can analyze it
+      - name: Build Docker Image
+        run: docker build --provenance=false --sbom=false -t ${{ env.REGISTRY }}/${{ env.IMAGE_LC }}:${{ github.sha }} ./my-app
 
-    - name: Build Docker Image
-      run: docker build -t ${{ env.IMAGE_NAME }}:${{ github.sha }} ./my-app
+      # Step 3: Vulnerability Scan using Trivy
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: '${{ env.REGISTRY }}/${{ env.IMAGE_LC }}:${{ github.sha }}'
+          format: 'table'
+          exit-code: '1' # Fails the pipeline if CRITICAL/HIGH vulnerabilities are found
+          severity: 'CRITICAL,HIGH'
 
-    - name: Trivy Vulnerability Scan
-      uses: aquasecurity/trivy-action@master
-      with:
-        image-ref: '${{ env.IMAGE_NAME }}:${{ github.sha }}'
-        format: 'table'
-        exit-code: '0'
-        ignore-unfixed: true
+      # Step 4: SBOM Created
+      - name: Generate SBOM
+        uses: anchore/sbom-action@v0
+        with:
+          image: '${{ env.REGISTRY }}/${{ env.IMAGE_LC }}:${{ github.sha }}'
+          format: 'spdx-json'
+          output-file: 'sbom.spdx.json'
 
-    - name: Generate SBOM
-      uses: aquasecurity/trivy-action@master
-      with:
-        image-ref: '${{ env.IMAGE_NAME }}:${{ github.sha }}'
-        format: 'spdx-json'
-        output: 'sbom.spdx.json'
+      # Step 6 Prep: Authenticate with GHCR
+      - name: Log in to the Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
-    - name: Push to Registry
-      run: docker push ${{ env.IMAGE_NAME }}:${{ github.sha }}
+      # Step 6: Publish Image to GHCR
+      - name: Push Docker image to GHCR
+        run: docker push ${{ env.REGISTRY }}/${{ env.IMAGE_LC }}:${{ github.sha }}
 
-    - name: Sign Image with Cosign
-      run: cosign sign --yes ${{ env.IMAGE_NAME }}:${{ github.sha }}
+      # Step 5 Prep: Install Cosign
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@v3.5.0
+
+      # Step 5: Image Signed (Signing happens directly against the registry digest)
+      - name: Sign the published Docker image
+        run: cosign sign --yes ${{ env.REGISTRY }}/${{ env.IMAGE_LC }}:${{ github.sha }}

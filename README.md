@@ -1,1 +1,1 @@
-# shz-gitops-manifests
+# shz-gitops-manifest
