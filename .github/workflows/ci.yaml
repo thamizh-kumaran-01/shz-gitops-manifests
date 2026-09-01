@@ -28,7 +28,7 @@ jobs:
 
       # Build the image locally first so Trivy and SBOM can analyze it
       - name: Build Docker Image
-        run: docker build -t ${{ env.REGISTRY }}/${{ env.IMAGE_LC }}:${{ github.sha }} .
+        run: docker build --provenance=false --sbom=false -t ${{ env.REGISTRY }}/${{ env.IMAGE_LC }}:${{ github.sha }} ./my-app
 
       # Step 3: Vulnerability Scan using Trivy
       - name: Run Trivy vulnerability scanner
