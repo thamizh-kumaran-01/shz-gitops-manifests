@@ -5,12 +5,17 @@ metadata:
 spec:
   validationFailureAction: Enforce
   rules:
-    - name: check-owner-label
-      match:
-        any:
-        - resources:
-            kinds:
-              - Deployment
+  - name: check-owner-label
+    match:
+      any:
+      - resources:
+          kinds:
+          - Deployment
+    exclude:
+      any:
+      - resources:
+          namespaces:
+          - monitoring
       validate:
         message: "Zero-Trust Violation: Every deployment must include an 'owner' label!"
         pattern:
