@@ -18,6 +18,6 @@ spec:
     spec:
       containers:
       - name: web-app
-        image: ghcr.io/thamizh-kumaran-01/shz-app:a00c799879300d5f7b499f1fd004acd475952f5cc368490f232aef52f86846c568e4cf6cbf95fde4
+        image: ghcr.io/thamizh-kumaran-01/shz-app@sha256:5195927994c7e88d980f46bd5ec7882db380a33585254d76388c644953776c6d
         ports:
         - containerPort: 80
